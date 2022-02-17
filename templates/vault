@@ -1,0 +1,4 @@
+export VAULT_ADDR="https://${ api_address }"
+export VAULT_CACERT=/etc/vault/tls/ca.pem
+export VAULT_CLIENT_CERT=/etc/vault/tls/peer-cert.pem
+export VAULT_CLIENT_KEY=/etc/vault/tls/peer-cert.key
