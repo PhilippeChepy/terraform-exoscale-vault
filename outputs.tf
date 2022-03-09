@@ -1,3 +1,12 @@
+output "instances" {
+  description = "Cluster member instance details"
+  value = {
+    for hostname, spec in exoscale_compute_instance.peer : hostname => merge(
+      var.ipv4 ? { ipv4 = spec.public_ip_address } : {},
+    var.ipv6 ? { ipv6 = spec.ipv6_address } : {})
+  }
+}
+
 output "instance_urls" {
   description = "A list of URLs to the cluster members. For use by cluster client."
   value = [

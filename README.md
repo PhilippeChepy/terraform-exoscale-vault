@@ -208,6 +208,10 @@ Description: The private key of the server TLS certificate.
 
 Description: A list of URLs to the cluster members. For use by cluster client.
 
+### <a name="output_instances"></a> [instances](#output\_instances)
+
+Description: Cluster member instance details
+
 ### <a name="output_security_group"></a> [security\_group](#output\_security\_group)
 
 Description: The cluster internal security group ID.
