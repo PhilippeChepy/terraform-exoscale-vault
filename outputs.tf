@@ -1,30 +1,19 @@
-output "instances" {
-  description = "Cluster member instance details"
-  value = {
-    for hostname, spec in exoscale_compute_instance.peer : hostname => merge(
-      var.ipv4 ? { ipv4 = spec.public_ip_address } : {},
-    var.ipv6 ? { ipv6 = spec.ipv6_address } : {})
-  }
+output "url" {
+  description = "The URL of the cluster, for use by clients."
+  value       = "https://${exoscale_elastic_ip.endpoint.ip_address}:8200"
 }
 
-output "instance_urls" {
-  description = "A list of URLs to the cluster members. For use by cluster client."
-  value = [
-    for peer, specs in exoscale_compute_instance.peer : local.public_ipv6 ? "https://[${specs.ipv6_address}]:8200" : "https://${peer.ip_address}:8200"
-  ]
+output "client_security_group_id" {
+  description = "A security group id to add to cluster clients."
+  value       = exoscale_security_group.clients.id
 }
 
-output "security_group" {
-  description = "The cluster internal security group ID."
-  value       = exoscale_security_group.cluster.id
+output "eip" {
+  description = "Cluster's Elastic-IP."
+  value       = exoscale_elastic_ip.endpoint.ip_address
 }
 
-output "ca_private_key_pem" {
-  description = "The private key of the server TLS certificate."
-  value       = var.pki.mode == "terraform" ? module.ca_certificates["server"].private_key_pem : ""
-}
-
-output "ca_certificate_pem" {
-  description = "The TLS certificate of the server."
-  value       = var.pki.mode == "terraform" ? module.ca_certificates["server"].certificate_pem : ""
+output "instance_ids" {
+  description = "Cluster's instance IDs"
+  value       = exoscale_instance_pool.cluster.virtual_machines
 }

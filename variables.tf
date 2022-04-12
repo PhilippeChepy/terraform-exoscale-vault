@@ -5,30 +5,26 @@ variable "zone" {
   type        = string
 }
 
+variable "name" {
+  description = "The base name of cluster components."
+  type        = string
+}
+
 variable "template_id" {
   description = "OS template id to use. Reference implementation is built using the `packer-exoscale` repository."
   type        = string
 }
 
 variable "instance_type" {
-  description = "Service offering of member instances. `standard.tiny` should be sufficient for use with a small Kubernetes cluster."
+  description = "Service offering of member instances. `standard.tiny` should be sufficient for small infrastructures."
   type        = string
+  default     = "standard.tiny"
 }
 
 variable "disk_size" {
-  description = "Size of the root partition in GB. `10` should be sufficient for use with a bunch of small Kubernetes cluster."
+  description = "Size of the root partition in GB. `10` should be sufficient for most use case."
   type        = number
-}
-
-variable "security_group_rules" {
-  description = "A list of security groups to add. Clients of the cluster can be authorized using this variable."
-  type = map(object({
-    protocol = string
-    type     = string
-    port     = number
-    source   = string
-  }))
-  default = {}
+  default     = 10
 }
 
 variable "ipv4" {
@@ -40,59 +36,41 @@ variable "ipv4" {
 variable "ipv6" {
   description = "If IPv6 must be enabled on member instances."
   type        = bool
-  default     = false
+  default     = true
+}
+
+variable "admin_security_group_ids" {
+  description = "A list of security groups IDs authorized to access SSH"
+  type        = set(string)
+  default     = []
+}
+
+variable "client_security_group_ids" {
+  description = "A list of security groups IDs authorized to access Vault. Clients of the cluster can be authorized using this variable."
+  type        = set(string)
+  default     = []
 }
 
 variable "ssh_key" {
-  description = "Authorized SSH key."
+  description = "Authorized SSH key name."
   type        = string
+}
+
+variable "labels" {
+  description = "Additional labels for cluster's instances."
+  type        = map(string)
+  default     = {}
 }
 
 # Cluster settings
 
-variable "cluster_name" {
-  description = "The name of the cluster."
+variable "domain" {
+  description = "Domain name of the cluster (for FQDN definition)"
   type        = string
 }
 
-variable "hostnames" {
-  description = "The list of hostnames that are cluster members. This variable also define how many members are set."
-  type        = set(string)
-}
-
-variable "preferred_link" {
-  description = "The preferred link for communication inside of the cluster and with clients (valid values: 'public-ipv6', 'public-ipv4')."
-  type        = string
-  default     = "public-ipv6"
-
-  validation {
-    condition     = contains(["public-ipv4", "public-ipv6"], var.preferred_link)
-    error_message = "The `preferred_link` value must be either 'public-ipv6' or 'public-ipv4'."
-  }
-}
-
-# Instance settings
-
-variable "connection" {
-  description = "Connection settings for the initial setup of the cluster."
-  type = object({
-    user        = string
-    private_key = string
-  })
-}
-
-variable "pki" {
-  description = "How TLS is handled (valid `.mode` values: 'disabled', 'terraform')."
-  type = object({
-    mode = string
-  })
-
-  default = {
-    mode = "terraform"
-  }
-
-  validation {
-    condition     = contains(["disabled", "terraform"], var.pki.mode)
-    error_message = "The `pki.mode` value must be either 'disabled' or 'terraform'."
-  }
+variable "cluster_size" {
+  description = "Cluster size. Recommended values are 3 or 5 (tolerates respectively 1 or 2 failure)"
+  type        = number
+  default     = 3
 }
