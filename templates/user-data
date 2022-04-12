@@ -1,0 +1,97 @@
+## template: jinja
+#cloud-config
+manage_etc_hosts: false
+hostname: {{ ds.meta_data.public_hostname }}
+fqdn: {{ ds.meta_data.public_hostname }}.${domain}
+
+write_files:
+- path: /etc/vault/server-conf.d/vault.hcl
+  owner: vault:vault
+  permissions: "0600"
+  content: |
+    cluster_name      = "${cluster_name}"
+    max_lease_ttl     = "768h"
+    default_lease_ttl = "768h"
+
+    plugin_directory = "/usr/local/lib/vault/plugins"
+    disable_mlock    = true
+    ui               = true
+
+    cluster_addr = "https://{{ ds.meta_data.public_ipv4 }}:8201"
+    api_addr     = "https://{{ ds.meta_data.public_ipv4 }}:8200"
+
+    listener "tcp" {
+      address            = "0.0.0.0:8200"
+      cluster_address    = "{{ ds.meta_data.public_ipv4 }}:8201"
+      tls_cert_file      = "/etc/vault/tls/server-cert.pem"
+      tls_key_file       = "/etc/vault/tls/server-cert.key"
+      tls_client_ca_file = "/etc/vault/tls/ca.pem"
+    }
+
+    storage "raft" {
+      path    = "/var/lib/vault"
+      node_id = "{{ ds.meta_data.public_hostname }}"
+
+      retry_join {
+        leader_tls_servername = "${cluster_name}"
+        leader_api_addr       = "https://${cluster_eip_api_address}:8200"
+        leader_ca_cert_file   = "/etc/vault/tls/ca.pem"
+      }
+    }
+- path: /etc/vault/agent-conf.d/role_id
+  owner: vault:vault
+  permissions: "0600"
+  content: vault-server
+- path: /etc/vault/agent-conf.d/instance_id
+  owner: vault:vault
+  permissions: "0600"
+  content: "{{ ds.meta_data.instance_id }}"
+- path: /etc/vault/agent-conf.d/vault.hcl
+  owner: vault:vault
+  permissions: "0600"
+  content: |
+    vault {
+      address = "https://{{ ds.meta_data.public_ipv4 }}:8200"
+      ca_cert = "/etc/vault/tls/ca.pem"
+    }
+
+    auto_auth {
+      method "approle" {
+        mount_path = "auth/exoscale"
+        
+        config = {
+          role_id_file_path                   = "/etc/vault/agent-conf.d/role_id"
+          secret_id_file_path                 = "/etc/vault/agent-conf.d/instance_id"
+          remove_secret_id_file_after_reading = false
+        }
+      }
+    }
+
+    template {
+      contents    = "{% raw %}{{ with secret \"pki/platform/vault/issue/server\" \"common_name=${cluster_name}\" \"ttl=24h\" \"alt_names=${cluster_name},{{ ds.meta_data.public_hostname }}\" \"ip_sans=${cluster_eip_api_address},{% endraw %}{{ ds.meta_data.public_ipv4 }}{% raw %}\"}}{{ .Data.certificate }}\n{{ .Data.issuing_ca }}{{ end }}{% endraw %}"
+      destination = "/etc/vault/tls/server-cert.pem"
+      command     = "sudo systemctl reload vault-server"
+      perms       = 0644
+    }
+
+    template {
+      contents    = "{% raw %}{{ with secret \"pki/platform/vault/issue/server\" \"common_name=${cluster_name}\" \"ttl=24h\" \"alt_names=${cluster_name},{{ ds.meta_data.public_hostname }}\" \"ip_sans=${cluster_eip_api_address},{% endraw %}{{ ds.meta_data.public_ipv4 }}{% raw %}\"}}{{ .Data.private_key }}{{ end }}{% endraw %}"
+      destination = "/etc/vault/tls/server-cert.key"
+      command     = "sudo systemctl reload vault-server"
+      perms       = 0600
+    }
+
+    template {
+      contents    = "{% raw %}{{ with secret \"pki/platform/vault/issue/server\" \"common_name=${cluster_name}\" \"ttl=24h\" \"alt_names=${cluster_name},{{ ds.meta_data.public_hostname }}\" \"ip_sans=${cluster_eip_api_address},{% endraw %}{{ ds.meta_data.public_ipv4 }}{% raw %}\"}}{{ .Data.issuing_ca }}{{ end }}{% endraw %}"
+      destination = "/etc/vault/tls/ca.pem"
+      command     = "sudo systemctl reload vault-server"
+      perms       = 0644
+    }
+
+- path: /etc/default/vault
+  content: |
+    export VAULT_CACERT=/etc/vault/tls/ca.pem
+    export VAULT_TLS_SERVER_NAME=${cluster_name}
+
+  owner: vault:vault
+  permissions: "0777"
